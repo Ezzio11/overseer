@@ -481,35 +481,14 @@ const GlobeView: React.FC = () => {
             tiltGroup.rotation.z = axialTilt;
             tiltGroup.name = 'earth-tilt-group';
 
-            // TILT CONTAINER STRATEGY
-            // Reparent the entire Globe Instance into our Tilt Group
-            // This ensures EVERYTHING (Mesh, Polygons, Markers) rotates together
-            const scene = globeEl.current.scene();
-            const globeInstance = globeEl.current; // The Object3D
-
-            // Check if already parented to prevent loops or errors
-            // Check if already parented to prevent loops or errors
-            // FIX: globeInstance (globeEl.current) is the component ref, not the Object3D!
-            // We need to find the actual ThreeGlobe object in the scene.
-            let threeGlobeObj: any = null;
-            scene.traverse((obj: any) => {
-                // The ThreeGlobe object usually contains the 'globe' mesh as a child
-                // OR it is the group that contains it.
-                // Let's find the mesh first, then get its parent (which is the ThreeGlobe object)
-                if (!threeGlobeObj && obj.type === 'Mesh' && obj.__globeObjType === 'globe') {
-                    threeGlobeObj = obj.parent;
-                }
-            });
-
-            if (threeGlobeObj && threeGlobeObj !== tiltGroup && threeGlobeObj.parent !== tiltGroup) {
-                // Remove from scene (default parent) handled by .add()
-                tiltGroup.add(threeGlobeObj);
-            }
-
-            // Ensure tiltGroup is still in scene
-            if (tiltGroup.parent !== scene) {
+            // Add tiltGroup to scene immediately so it can be found by loaders
+            if (globeEl.current) {
+                const scene = globeEl.current.scene();
                 scene.add(tiltGroup);
             }
+
+            // TILT CONTAINER STRATEGY - REPLACED WITH DIRECT ROTATION
+            // We no longer reparent the globe. We rotate the group found by heuristic in the animation loop.
 
 
             // --- TACTICAL VISUAL UPGRADES (Phase 8) ---
@@ -733,11 +712,32 @@ const GlobeView: React.FC = () => {
                 // REALISTIC = 23.4 degrees on Z axis
                 const targetTilt = viewModeRef.current === 'REALISTIC' ? 23.4 * Math.PI / 180 : 0;
 
-                // 2. Smooth Lerp the entire Container
-                tiltGroup.rotation.z += (targetTilt - tiltGroup.rotation.z) * 0.05;
+                // 2. Rotate Custom Atmosphere Group
+                if (globeEl.current) {
+                    const scene = globeEl.current.scene();
+                    const tiltGroup = scene.getObjectByName('earth-tilt-group');
+                    if (tiltGroup) {
+                        tiltGroup.rotation.z += (targetTilt - tiltGroup.rotation.z) * 0.05;
+                    }
 
-                // No need to manually sync children or mesh rotation anymore
-                // The container handles it all.
+                    // 3. Rotate the Library's Globe Group (Heuristic Search)
+                    // We look for a Group that contains the Sphere Mesh of the earth
+                    scene.traverse((obj: any) => {
+                        // Check if this object is a Group and has children
+                        if (obj.type === 'Group' && obj.children.length > 0 && obj.name !== 'earth-tilt-group') {
+                            // Check if it contains the Earth Mesh (SphereGeometry)
+                            const hasSphereMesh = obj.children.some((child: any) =>
+                                child.type === 'Mesh' && child.geometry && child.geometry.type === 'SphereGeometry'
+                            );
+
+                            if (hasSphereMesh) {
+                                // This is likely the ThreeGlobe object or its internal container
+                                // Apply tilt smoothly
+                                obj.rotation.z += (targetTilt - obj.rotation.z) * 0.05;
+                            }
+                        }
+                    });
+                }
 
                 // Update Earth Material Uniforms
                 if (earthMaterial) {

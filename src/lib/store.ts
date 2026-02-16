@@ -32,7 +32,7 @@ export const useStore = create<OverseerState>((set) => ({
     globalEvents: [],
     comparisonCountryId: null,
     isComparisonMode: false,
-    viewMode: 'REALISTIC',
+    viewMode: 'STANDARD',
 
     setFocusedCountry: (countryId) => set({ focusedCountry: countryId }),
     setComparisonCountry: (countryId) => set({ comparisonCountryId: countryId }),
