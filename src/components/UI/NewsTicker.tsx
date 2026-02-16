@@ -1,11 +1,9 @@
 'use client';
 
 import { useStore } from '@/lib/store';
-import { Radio } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 export default function NewsTicker() {
-    // Mock data for initial render to prevent hydration mismatch if store is empty initially
     const news = useStore((state) => state.news);
     const [mounted, setMounted] = useState(false);
 
@@ -13,36 +11,60 @@ export default function NewsTicker() {
         setMounted(true);
     }, []);
 
-    if (!mounted) return null;
-
-    // Fallback if no news
-    const items = news.length > 0 ? news : [
-        { id: '1', properties: { title: 'ESTABLISHING SECURE CONNECTION...', domain: 'SYSTEM', url: '#' } },
-        { id: '2', properties: { title: 'AWAITING DATA STREAM...', domain: 'NETWORK', url: '#' } }
+    // 1. STABLE FALLBACK: Don't return null. 
+    // Render "SYSTEM" messages immediately so the layout doesn't jump.
+    const fallbackItems = [
+        { id: 'init-1', properties: { title: 'ESTABLISHING SECURE CONNECTION...', domain: 'SYSTEM', url: '#' } },
+        { id: 'init-2', properties: { title: 'ENCRYPTING DATA STREAM...', domain: 'NETSEC', url: '#' } },
+        { id: 'init-3', properties: { title: 'AWAITING UPLINK...', domain: 'SAT_04', url: '#' } }
     ];
 
-    return (
-        <div className="w-full h-full flex items-center overflow-hidden relative group">
+    // If not mounted yet, or if mounted but no news, use fallback
+    const displayItems = (!mounted || news.length === 0) ? fallbackItems : news;
 
-            {/* LABEL */}
-            <div className="flex items-center gap-2 px-3 h-full shrink-0 z-10 bg-black/40 border-r border-cyan-500/20 backdrop-blur-sm">
-                <Radio className="w-3 h-3 text-cyan-400 animate-pulse" />
-                <span className="text-[9px] font-mono font-bold text-cyan-500 tracking-widest">GLOBAL_WIRE</span>
+    // 2. DYNAMIC SPEED: Adjust speed based on content length so short lists don't fly, long lists don't crawl.
+    const animationDuration = `${Math.max(40, displayItems.length * 10)}s`;
+
+    return (
+        <div className="w-full h-full flex items-center overflow-hidden relative group select-none">
+
+            {/* LABEL - REMOVED BACKGROUND (Parent pill handles the glass look) */}
+            <div className="flex items-center gap-3 pr-4 h-full shrink-0 z-10 border-r border-white/10 mr-4">
+
+                {/* 3. HARDWARE PULSE: Replaced Icon with CSS "Diode" */}
+                <div className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.8)]"></span>
+                </div>
+
+                <span className="font-mono text-[10px] font-bold text-cyan-500 tracking-[0.2em]">GLOBAL_WIRE</span>
             </div>
 
             {/* SCROLLING CONTENT */}
             <div className="flex-1 overflow-hidden relative h-full flex items-center mask-scroller">
-                <div className="flex animate-marquee items-center whitespace-nowrap">
-                    {/* Triple the items for smooth infinite loop */}
-                    {[...items, ...items, ...items].map((item, idx) => (
+                <div
+                    className="flex animate-marquee items-center whitespace-nowrap"
+                    style={{ animationDuration: animationDuration }}
+                >
+                    {/* Triple loop for smoothness */}
+                    {[...displayItems, ...displayItems, ...displayItems].map((item, idx) => (
                         <div
                             key={`${item.id}-${idx}`}
-                            className="flex items-center gap-2 px-8 cursor-pointer hover:text-cyan-300 transition-colors opacity-80 hover:opacity-100"
+                            className="flex items-center gap-2 px-6 cursor-pointer group/item transition-all duration-300"
                             onClick={() => item.properties.url !== '#' && window.open(item.properties.url, '_blank')}
                         >
-                            <span className="text-[9px] text-cyan-700 font-mono tracking-wider">[{item.properties.domain}]</span>
-                            <span className="text-[10px] text-cyan-100 font-mono tracking-wide">{item.properties.title}</span>
-                            <div className="w-1 h-1 bg-cyan-900 rounded-full ml-2" />
+                            {/* Domain Tag */}
+                            <span className="font-mono text-[9px] text-cyan-700/80 tracking-wider group-hover/item:text-cyan-500 transition-colors">
+                                :: {item.properties.domain.toUpperCase()}
+                            </span>
+
+                            {/* Title */}
+                            <span className="font-mono text-xs text-cyan-100/90 tracking-wide group-hover/item:text-white group-hover/item:shadow-[0_0_10px_rgba(0,255,255,0.4)] transition-all">
+                                {item.properties.title}
+                            </span>
+
+                            {/* Separator Dot */}
+                            <div className="w-1 h-1 bg-cyan-900/50 rounded-full ml-4" />
                         </div>
                     ))}
                 </div>
@@ -54,13 +76,19 @@ export default function NewsTicker() {
                     100% { transform: translateX(-33.33%); }
                 }
                 .animate-marquee {
-                    animation: marquee 1000s linear infinite;
+                    animation-name: marquee;
+                    animation-timing-function: linear;
+                    animation-iteration-count: infinite;
+                    /* Duration is set inline */
                 }
+                /* Pause on hover for readability */
                 .group:hover .animate-marquee {
                     animation-play-state: paused;
                 }
+                /* The fade effect on edges */
                 .mask-scroller {
-                    mask-image: linear-gradient(to right, transparent, black 20px, black 90%, transparent);
+                    mask-image: linear-gradient(to right, transparent 0%, black 20px, black 95%, transparent 100%);
+                    -webkit-mask-image: linear-gradient(to right, transparent 0%, black 20px, black 95%, transparent 100%);
                 }
             `}</style>
         </div>

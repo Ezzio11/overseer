@@ -45,6 +45,47 @@ export interface MilitaryMetrics {
     globalFirepowerRank: number;      // 1 = strongest
 }
 
+export interface CulturalMetrics {
+    flag: string;                     // Emoji flag (🇺🇸) or SVG path
+    officialLanguages: string[];      // e.g., ["English", "Spanish"]
+    predominantReligions: string[];   // e.g., ["Christianity", "Islam"]
+    nationalAnimal?: string;          // e.g., "Bald Eagle"
+    famousCuisine: string[];          // e.g., ["Hamburgers", "Apple Pie"]
+    famousLandmarks: string[];        // e.g., ["Statue of Liberty", "Grand Canyon"]
+    popularGame?: string;             // Most played game/sport
+}
+
+export interface PivotalEvent {
+    year: number;
+    title: string;
+    description: string;
+    impact: string;                   // Long-term impact on the nation
+}
+
+export interface HistoricalMetrics {
+    ancientCivilization?: string;     // e.g., "Roman Empire", "Aztec Empire"
+    pivotalEvents: PivotalEvent[];    // Major historical moments
+    notableScientists: string[];      // Famous scientists from this country
+    famousPersonalities: string[];    // Artists, writers, leaders
+    famousBooks: string[];            // Literary works
+}
+
+export interface GovernmentMetrics {
+    currentLeader: string;            // Name of current head of state
+    governmentType: string;           // e.g., "Constitutional Monarchy", "Presidential Republic"
+    independence?: {
+        date: string;                 // e.g., "July 4, 1776"
+        from: string;                 // e.g., "British Empire"
+    };
+}
+
+export interface VisualTheme {
+    primaryColor: string;             // Hex color from flag
+    secondaryColor: string;           // Accent color
+    backgroundType: 'desert' | 'forest' | 'ocean' | 'mountain' | 'urban' | 'tundra' | 'plains';
+    atmosphereGradient: [string, string]; // [start, end] gradient colors
+}
+
 export interface GlobalEvent {
     id: string;
     type: 'CONFLICT' | 'DISASTER' | 'PROTEST' | 'CYBERATTACK' | 'TERRORISM';
@@ -91,7 +132,6 @@ export interface CountryData {
     developmentStatus?: string; // e.g., "Developed", "Developing"
 
     // Dynamic Intel
-
     activeEvents?: GlobalEvent[]; // Real-time events matched to this country
 
     // Categorized Metrics
@@ -101,6 +141,12 @@ export interface CountryData {
     social: SocialMetrics;
     security: SecurityMetrics;
     military: MilitaryMetrics;
+
+    // Enhanced Cultural & Historical Data
+    cultural?: CulturalMetrics;
+    historical?: HistoricalMetrics;
+    government?: GovernmentMetrics;
+    visualTheme?: VisualTheme;
 }
 
 // Map of Country Code -> Data

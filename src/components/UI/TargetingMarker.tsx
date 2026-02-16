@@ -40,11 +40,11 @@ export const TargetingMarker: React.FC<TargetingMarkerProps> = ({ label }) => {
             {/* Label / Data Block */}
             <div className="absolute -bottom-10 flex flex-col items-center">
                 <div className="px-2 py-0.5 bg-cyan-950/80 border border-cyan-500/30 backdrop-blur-sm">
-                    <span className="font-mono text-[10px] text-cyan-400 tracking-[0.2em] font-bold">
+                    <span className="font-data text-data-xs text-cyan-400 tracking-tactical-wide font-bold">
                         TARGET LOCKED
                     </span>
                 </div>
-                <div className="mt-1 font-mono text-[9px] text-cyan-200/70 tracking-widest uppercase">
+                <div className="mt-1 font-data text-data-xs text-cyan-200/70 tracking-widest uppercase">
                     {label}
                 </div>
             </div>

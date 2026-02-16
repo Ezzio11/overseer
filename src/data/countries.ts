@@ -5499,6 +5499,61 @@ export const COUNTRIES: CountryDataset = {
       "defenseSpending": 1.2,
       "activePersonnel": 663127,
       "globalFirepowerRank": 100
+    },
+    "cultural": {
+      "flag": "🇲🇽",
+      "officialLanguages": ["Spanish"],
+      "predominantReligions": ["Roman Catholic", "Protestant"],
+      "nationalAnimal": "Golden Eagle",
+      "famousCuisine": ["Tacos", "Mole", "Pozole", "Tamales", "Enchiladas", "Guacamole"],
+      "famousLandmarks": ["Chichen Itza", "Teotihuacan", "Palenque", "Tulum", "Zócalo"],
+      "popularGame": "Soccer (Fútbol)"
+    },
+    "historical": {
+      "ancientCivilization": "Aztec Empire / Maya Civilization",
+      "pivotalEvents": [
+        {
+          "year": 1521,
+          "title": "Fall of Tenochtitlan",
+          "description": "Spanish conquistadors led by Hernán Cortés conquered the Aztec Empire",
+          "impact": "Marked the beginning of Spanish colonial rule and cultural transformation"
+        },
+        {
+          "year": 1810,
+          "title": "Mexican War of Independence",
+          "description": "Miguel Hidalgo's cry for independence sparked an 11-year revolution",
+          "impact": "Led to independence from Spain and birth of modern Mexico"
+        },
+        {
+          "year": 1910,
+          "title": "Mexican Revolution",
+          "description": "Social and political upheaval ended the Porfiriato dictatorship",
+          "impact": "Established modern political system and land reforms"
+        },
+        {
+          "year": 1994,
+          "title": "NAFTA Implementation",
+          "description": "North American Free Trade Agreement came into effect",
+          "impact": "Transformed economy through increased trade with USA and Canada"
+        }
+      ],
+      "notableScientists": ["Mario Molina (Nobel Chemistry)", "Luis E. Miramontes (Birth Control Pill)", "Guillermo González Camarena (Color TV)"],
+      "famousPersonalities": ["Frida Kahlo", "Diego Rivera", "Octavio Paz", "Salma Hayek"],
+      "famousBooks": ["The Labyrinth of Solitude", "Pedro Páramo", "Like Water for Chocolate"]
+    },
+    "government": {
+      "currentLeader": "Claudia Sheinbaum",
+      "governmentType": "Federal Presidential Republic",
+      "independence": {
+        "date": "September 16, 1821",
+        "from": "Spanish Empire"
+      }
+    },
+    "visualTheme": {
+      "primaryColor": "#006341",
+      "secondaryColor": "#CE1126",
+      "backgroundType": "desert",
+      "atmosphereGradient": ["#8B4513", "#D2691E"]
     }
   },
   "MHL": {
@@ -9049,6 +9104,61 @@ export const COUNTRIES: CountryDataset = {
       "defenseSpending": 3.5,
       "activePersonnel": 1390000,
       "globalFirepowerRank": 1
+    },
+    "cultural": {
+      "flag": "🇺🇸",
+      "officialLanguages": ["English"],
+      "predominantReligions": ["Christianity", "Unaffiliated"],
+      "nationalAnimal": "Bald Eagle",
+      "famousCuisine": ["Hamburgers", "Hot Dogs", "Apple Pie", "BBQ Ribs", "Mac and Cheese"],
+      "famousLandmarks": ["Statue of Liberty", "Grand Canyon", "Golden Gate Bridge", "Mount Rushmore", "Lincoln Memorial"],
+      "popularGame": "American Football"
+    },
+    "historical": {
+      "ancientCivilization": "Indigenous Nations",
+      "pivotalEvents": [
+        {
+          "year": 1776,
+          "title": "Declaration of Independence",
+          "description": "Thirteen colonies declared independence from British rule",
+          "impact": "Birth of the United States as a sovereign nation"
+        },
+        {
+          "year": 1865,
+          "title": "End of Civil War & Abolition of Slavery",
+          "description": "Union victory ended slavery and preserved the nation",
+          "impact": "Redefined American identity and began Reconstruction era"
+        },
+        {
+          "year": 1969,
+          "title": "Moon Landing",
+          "description": "Apollo 11 mission successfully landed humans on the Moon",
+          "impact": "Demonstrated technological supremacy and inspired space exploration"
+        },
+        {
+          "year": 2001,
+          "title": "September 11 Attacks",
+          "description": "Terrorist attacks on World Trade Center and Pentagon",
+          "impact": "Reshaped foreign policy, led to War on Terror"
+        }
+      ],
+      "notableScientists": ["Albert Einstein (adopted)", "Richard Feynman", "Jane Goodall", "Carl Sagan"],
+      "famousPersonalities": ["Martin Luther King Jr.", "Walt Disney", "Steve Jobs", "Oprah Winfrey"],
+      "famousBooks": ["The Great Gatsby", "To Kill a Mockingbird", "Moby-Dick", "The Adventures of Huckleberry Finn"]
+    },
+    "government": {
+      "currentLeader": "Joe Biden",
+      "governmentType": "Federal Presidential Constitutional Republic",
+      "independence": {
+        "date": "July 4, 1776",
+        "from": "Kingdom of Great Britain"
+      }
+    },
+    "visualTheme": {
+      "primaryColor": "#B22234",
+      "secondaryColor": "#3C3B6E",
+      "backgroundType": "plains",
+      "atmosphereGradient": ["#1a1a2e", "#16213e"]
     }
   },
   "UZB": {

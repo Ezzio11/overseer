@@ -8,12 +8,81 @@ import SunCalc from 'suncalc';
 
 import { COUNTRIES } from '@/data/countries';
 import { TargetingMarker } from '../UI/TargetingMarker';
+import { ISSFeed } from '../UI/ISSFeed';
 
 import { useStore } from '@/lib/store';
 import { fetchLatestEarthquakes, EarthquakeFeature } from '@/lib/usgs';
 import { fetchLatestNews, NewsFeature } from '@/lib/news';
 
 
+
+// --- VISUAL ENHANCEMENT SHADERS ---
+
+const EARTH_VS = `
+  varying vec2 vUv;
+  varying vec3 vNormal;
+  varying vec3 vPosition;
+  uniform sampler2D elevTexture;
+
+  void main() {
+    // Position
+    vec4 modelPosition = modelMatrix * vec4(position, 1.0);
+    gl_Position = projectionMatrix * viewMatrix * modelPosition;
+
+    // Model normal
+    vec3 modelNormal = (modelMatrix * vec4(normal, 0.0)).xyz;
+
+    // Varyings
+    vUv = uv;
+    vNormal = modelNormal;
+    vPosition = modelPosition.xyz;
+  }
+`;
+
+const EARTH_FS = `
+  uniform sampler2D dayTexture;
+  uniform sampler2D nightTexture;
+  uniform sampler2D cloudsTexture;
+  uniform vec3 sunDirection;
+
+  varying vec2 vUv;
+  varying vec3 vNormal;
+  varying vec3 vPosition;
+
+  void main() {
+    vec3 viewDirection = normalize(vPosition - cameraPosition);
+    vec3 normal = normalize(vNormal);
+    vec3 color = vec3(0.0);
+
+    // Sun orientation
+    float sunOrientation = dot(sunDirection, normal);
+
+    // Day / night color
+    float dayMix = smoothstep(- 0.25, 0.5, sunOrientation);
+    vec3 dayColor = texture(dayTexture, vUv).rgb;
+    vec3 nightColor = texture(nightTexture, vUv).rgb;
+    color = mix(nightColor, dayColor, dayMix);
+
+    // Specular cloud color
+    vec2 specularCloudsColor = texture(cloudsTexture, vUv).rg;
+
+    // Clouds
+    float cloudsMix = smoothstep(0.0, 1.0, specularCloudsColor.g);
+    cloudsMix *= dayMix;
+    color = mix(color, vec3(1.0), cloudsMix);
+
+    // Specular
+    vec3 reflection = reflect(- sunDirection, normal);
+    float specular = - dot(reflection, viewDirection);
+    // specular = max(specular, 0.0);
+    // specular = pow(specular, 0.5);
+    // specular *= specularCloudsColor.r;
+    // color += specular * 0.5;
+    
+    // Final color
+    gl_FragColor = vec4(color, 1.0);
+  }
+`;
 
 const GlobeView: React.FC = () => {
     // STORE
@@ -25,6 +94,14 @@ const GlobeView: React.FC = () => {
     // Comparison Mode
     const isComparisonMode = useStore((state) => state.isComparisonMode);
     const setComparisonCountry = useStore((state) => state.setComparisonCountry);
+
+    // View Mode
+    const viewMode = useStore((state) => state.viewMode);
+    const viewModeRef = useRef(viewMode);
+
+    useEffect(() => {
+        viewModeRef.current = viewMode;
+    }, [viewMode]);
 
     // OPTIMIZED POLYGONS
     // This block would typically be inside the Globe component's JSX, but based on the instruction's placement,
@@ -41,6 +118,7 @@ const GlobeView: React.FC = () => {
     const [earthquakes, setEarthquakes] = useState<EarthquakeFeature[]>([]);
     // const [news, setNews] = useState<NewsFeature[]>([]); // MOVED TO STORE
     const [focusedLocation, setFocusedLocation] = useState<{ lat: number; lng: number; label: string } | null>(null);
+    const [isIssViewOpen, setIsIssViewOpen] = useState(false);
     const [mounted, setMounted] = useState(false);
 
     // SYNC FOCUS STATE: Clear reticle/resume rotation when panel is closed
@@ -220,30 +298,7 @@ const GlobeView: React.FC = () => {
         return () => clearInterval(interval);
     }, []);
 
-    // 3. SURVEILLANCE: Mock State Aircraft (Visual Density)
-    const [aircraft, setAircraft] = useState<any[]>([]);
-    useEffect(() => {
-        // Generate stable random aircraft paths
-        const mockAircraft = Array.from({ length: 30 }).map((_, i) => ({
-            id: `AF-${2000 + i}`,
-            lat: (Math.random() * 140) - 70, // Avoid poles
-            lng: (Math.random() * 360) - 180,
-            alt: 0.15 + (Math.random() * 0.1), // Varied high altitude
-            color: '#FFD700', // Gold/Yellow
-            label: `USAF-${Math.floor(Math.random() * 900)}`
-        }));
-        setAircraft(mockAircraft);
 
-        // Simple orbit animation
-        const interval = setInterval(() => {
-            setAircraft(prev => prev.map(plane => ({
-                ...plane,
-                lng: plane.lng + 0.1 > 180 ? -180 : plane.lng + 0.1 // Move East
-            })));
-        }, 50); // 20fps smooth motion
-
-        return () => clearInterval(interval);
-    }, []);
 
     useEffect(() => {
         if (globeEl.current) {
@@ -314,7 +369,10 @@ const GlobeView: React.FC = () => {
 
             const updateLighting = () => {
                 const pos = updateSunPosition();
-                const coords = globeEl.current.getCoords(pos.lat, pos.lng, 4); // Sun Distance
+                // Standard getCoords returns position on a non-rotated sphere surface
+                // Since we are rotating the globe container, the sun position relative to surface features changes naturally
+                // We keep the sun "Fixed" in world space (relative to the ecliptic plane)
+                const coords = globeEl.current.getCoords(pos.lat, pos.lng, 4);
 
                 dirLight.position.set(coords.x, coords.y, coords.z);
                 sunGroup.position.set(coords.x, coords.y, coords.z);
@@ -339,22 +397,55 @@ const GlobeView: React.FC = () => {
                 updateLighting();
             }, 60000);
 
-            // MATERIAL HACK: Make globe glossy/metallic
-            // We need to wait for the globe mesh to be created
-            setTimeout(() => {
-                const globeMesh = globeEl.current.scene().children.find((obj: any) => obj.type === 'Mesh');
-                if (globeMesh && globeMesh.material) {
-                    globeMesh.material.metalness = 0.2; // Reduced from 0.8 to avoid overly dark specular-only look
-                    globeMesh.material.roughness = 0.7; // Increased to catch more diffuse light
-                    globeMesh.material.bumpScale = 5; // Exaggerate topology
+            // --- VISUAL UPGRADE: CUSTOM EARTH SHADER ---
+            const textureLoader = new THREE.TextureLoader();
+            let earthMaterial: THREE.ShaderMaterial | undefined;
+            // }
+
+            // --- VISUAL UPGRADE: NEBULA ---
+            const NEBULA_COUNT = 8;
+            const NEBULA_RADIUS = 400; // Far background
+            const nebulaGroup = new THREE.Group();
+            textureLoader.load('/rad-grad.png', (texture) => {
+                for (let i = 0; i < NEBULA_COUNT; i++) {
+                    const spriteMat = new THREE.SpriteMaterial({
+                        color: new THREE.Color().setHSL(0.6 + Math.random() * 0.2, 0.8, 0.2), // Blue-ish purple
+                        map: texture,
+                        transparent: true,
+                        opacity: 0.15,
+                        depthWrite: false,
+                        blending: THREE.AdditiveBlending
+                    });
+
+                    const sprite = new THREE.Sprite(spriteMat);
+
+                    // Random spherical position
+                    const theta = Math.random() * Math.PI * 2;
+                    const phi = Math.acos(2 * Math.random() - 1);
+                    const r = NEBULA_RADIUS + (Math.random() * 100);
+
+                    sprite.position.x = r * Math.sin(phi) * Math.cos(theta);
+                    sprite.position.y = r * Math.sin(phi) * Math.sin(theta);
+                    sprite.position.z = r * Math.cos(phi);
+
+                    const scale = 300 + Math.random() * 200;
+                    sprite.scale.set(scale, scale, 1);
+
+                    nebulaGroup.add(sprite);
                 }
-            }, 1000);
+                if (!globeEl.current) return;
+                const scene = globeEl.current.scene();
+                if (scene) scene.add(nebulaGroup);
+            });
 
             // TACTICAL CLOUD LAYER (Final Polish: Matching Reference)
             const CLOUDS_IMG = '/earth-clouds.png';
             new THREE.TextureLoader().load(CLOUDS_IMG, (cloudsTexture) => {
-                // High-resolution sphere (128 segments) to prevent artifacts
-                const cloudGeometry = new THREE.SphereGeometry(globeEl.current.getGlobeRadius() * 1.04, 128, 128);
+                if (!globeEl.current) return;
+                const radius = globeEl.current.getGlobeRadius ? globeEl.current.getGlobeRadius() : 100;
+
+                // High-resolution sphere (64 segments) to prevent artifacts
+                const cloudGeometry = new THREE.SphereGeometry(radius * 1.04, 64, 64);
                 const cloudMaterial = new THREE.MeshLambertMaterial({
                     map: cloudsTexture,
                     transparent: true,
@@ -373,21 +464,53 @@ const GlobeView: React.FC = () => {
                 // CRITICAL: Disable shadows to prevent "stripes" (self-shadowing artifacts)
                 clouds.castShadow = false;
                 clouds.receiveShadow = false;
-                globeEl.current.scene().add(clouds);
+                // Add to tilt group for axial tilt
+                const cloudsTiltGroup = globeEl.current.scene().getObjectByName('earth-tilt-group');
+                if (cloudsTiltGroup) cloudsTiltGroup.add(clouds);
 
-                // Animate Clouds (Slower drift)
-                (function rotateClouds() {
-                    clouds.rotation.y += 0.0002;
-                    requestAnimationFrame(rotateClouds);
-                })();
+                // Cloud animation moved to main render loop for better sync
             });
 
-            // Apply Axial Tilt to Globe Mesh (not entire scene, preserves HTML overlays)
-            const globeMesh = globeEl.current.scene().children.find((obj: any) => obj.type === 'Mesh' && obj.__globeObjType === 'globe');
-            if (globeMesh) {
-                const axialTilt = 23.4 * Math.PI / 180;
-                globeMesh.rotation.z = axialTilt;
+            // Create Tilt Group for visual globe elements only
+            // This preserves camera coordinate accuracy while showing axial tilt
+            const tiltGroup = new THREE.Group();
+            const axialTilt = 23.4 * Math.PI / 180;
+            // Initialize based on current mode (fetched via ref to be safe, or just default to 0 and let lerp fix it)
+            // We'll start at 0 to see the transition if it loads fast, or realistic if we want instant.
+            // Let's match the store default 'REALISTIC'
+            tiltGroup.rotation.z = axialTilt;
+            tiltGroup.name = 'earth-tilt-group';
+
+            // TILT CONTAINER STRATEGY
+            // Reparent the entire Globe Instance into our Tilt Group
+            // This ensures EVERYTHING (Mesh, Polygons, Markers) rotates together
+            const scene = globeEl.current.scene();
+            const globeInstance = globeEl.current; // The Object3D
+
+            // Check if already parented to prevent loops or errors
+            // Check if already parented to prevent loops or errors
+            // FIX: globeInstance (globeEl.current) is the component ref, not the Object3D!
+            // We need to find the actual ThreeGlobe object in the scene.
+            let threeGlobeObj: any = null;
+            scene.traverse((obj: any) => {
+                // The ThreeGlobe object usually contains the 'globe' mesh as a child
+                // OR it is the group that contains it.
+                // Let's find the mesh first, then get its parent (which is the ThreeGlobe object)
+                if (!threeGlobeObj && obj.type === 'Mesh' && obj.__globeObjType === 'globe') {
+                    threeGlobeObj = obj.parent;
+                }
+            });
+
+            if (threeGlobeObj && threeGlobeObj !== tiltGroup && threeGlobeObj.parent !== tiltGroup) {
+                // Remove from scene (default parent) handled by .add()
+                tiltGroup.add(threeGlobeObj);
             }
+
+            // Ensure tiltGroup is still in scene
+            if (tiltGroup.parent !== scene) {
+                scene.add(tiltGroup);
+            }
+
 
             // --- TACTICAL VISUAL UPGRADES (Phase 8) ---
 
@@ -439,12 +562,14 @@ const GlobeView: React.FC = () => {
                 // Store phases in user data to access in animation loop
                 starGeometry.userData = { phases, baseColors: colors.slice() };
 
+                const starTexture = textureLoader.load('/circle.png');
                 const starMaterial = new THREE.PointsMaterial({
-                    size: 1.2,
+                    size: 3.0,
+                    map: starTexture,
                     vertexColors: true,
                     transparent: true,
-                    opacity: 0.9,
-                    sizeAttenuation: false, // Keep them crisp
+                    opacity: 0.8,
+                    sizeAttenuation: false, // Keep them crisp but textured
                     depthWrite: false, // Don't block other objects
                     blending: THREE.AdditiveBlending
                 });
@@ -503,7 +628,7 @@ const GlobeView: React.FC = () => {
             `;
 
             const globeRadius = globeEl.current.getGlobeRadius();
-            const atmosphereGeometry = new THREE.SphereGeometry(globeRadius * 1.025, 64, 64);
+            const atmosphereGeometry = new THREE.SphereGeometry(globeRadius * 1.025, 48, 48);
             const atmosphereMaterial = new THREE.ShaderMaterial({
                 uniforms: uniforms,
                 vertexShader: vs,
@@ -515,7 +640,9 @@ const GlobeView: React.FC = () => {
 
             const atmosphereMesh = new THREE.Mesh(atmosphereGeometry, atmosphereMaterial);
             atmosphereMesh.name = ATMOSPHERE_NAME;
-            globeEl.current.scene().add(atmosphereMesh);
+            // Add to tilt group for axial tilt
+            const atmosphereTiltGroup = globeEl.current.scene().getObjectByName('earth-tilt-group');
+            if (atmosphereTiltGroup) atmosphereTiltGroup.add(atmosphereMesh);
 
             // 3. TACTICAL CLOUDS (Selective Visibility)
             // Existing clouds setup handles the basics.
@@ -554,10 +681,14 @@ const GlobeView: React.FC = () => {
                 });
                 auraMesh = new THREE.Points(auraGeometry, auraMaterial);
                 auraMesh.name = SCENE_AURA_NAME;
-                globeEl.current.scene().add(auraMesh);
+                // Add to tilt group for axial tilt
+                const auraTiltGroup = globeEl.current.scene().getObjectByName('earth-tilt-group');
+                if (auraTiltGroup) auraTiltGroup.add(auraMesh);
             } else {
                 auraMesh = existingAura as THREE.Points;
             }
+
+
 
             // --- ANIMATION LOOP ---
             let animationFrameId: number;
@@ -582,13 +713,37 @@ const GlobeView: React.FC = () => {
                         starField.geometry.attributes.color.needsUpdate = true;
                     }
 
-                    // Slow rotation of starfield
+                    // Simple Rotation (No Parallax)
                     starField.rotation.y = now * 0.02;
                 }
 
                 // Rotate Aura
                 if (auraMesh) {
                     auraMesh.rotation.y = -now * 0.05; // Counter-rotate for parallax
+                }
+
+                // Rotate Clouds in Tilt Group
+                const clouds = tiltGroup.getObjectByName('atmosphere-clouds');
+                if (clouds) {
+                    clouds.rotation.y += 0.0002;
+                }
+
+                // DYNAMIC TILT INTERPOLATION & CONTAINER ROTATION
+                // 1. Calculate Target Tilt
+                // REALISTIC = 23.4 degrees on Z axis
+                const targetTilt = viewModeRef.current === 'REALISTIC' ? 23.4 * Math.PI / 180 : 0;
+
+                // 2. Smooth Lerp the entire Container
+                tiltGroup.rotation.z += (targetTilt - tiltGroup.rotation.z) * 0.05;
+
+                // No need to manually sync children or mesh rotation anymore
+                // The container handles it all.
+
+                // Update Earth Material Uniforms
+                if (earthMaterial) {
+                    // Sync sun direction
+                    const sunPos = dirLight.position.clone().normalize();
+                    earthMaterial.uniforms.sunDirection.value.copy(sunPos);
                 }
 
                 animationFrameId = requestAnimationFrame(animate);
@@ -654,6 +809,95 @@ const GlobeView: React.FC = () => {
 
         updateOverlay();
         return () => cancelAnimationFrame(animationFrameId);
+    }, [focusedLocation]);
+
+
+    const renderHtmlElement = useCallback((d: any) => {
+        // ISS Marker
+        if (d.type === 'ISS') {
+            const el = document.createElement('div');
+
+            // CRITICAL FIX: explicit pointer events and z-index to ensure it captures clicks above the canvas
+            el.style.cursor = 'pointer';
+            el.style.pointerEvents = 'auto'; // Ensure the container captures events if it has size, but children handle it mostly
+            el.style.zIndex = '1000';
+
+            el.innerHTML = `
+                <div style="transform: translate(-50%, -50%); text-align: center; pointer-events: auto;">
+                    <div class="iss-icon" style="color: #00F0FF; font-size: 24px; transition: transform 0.3s; text-shadow: 0 0 10px #00F0FF;">🛰️</div>
+                    <div style="
+                        background: rgba(0,0,0,0.8); 
+                        border: 1px solid #00F0FF; 
+                        color: #00F0FF;
+                        padding: 2px 6px; 
+                        font-family: monospace; 
+                        font-size: 10px;
+                        margin-top: 4px;
+                        box-shadow: 0 0 10px #00F0FF;
+                        user-select: none;
+                    ">ISS LIVE</div>
+                </div>
+            `;
+
+            // Add Click Handler
+            const handleClick = (e: Event) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsIssViewOpen(true);
+            };
+
+            // Attach listeners to the element
+            // We strictly stop propagation on all interaction events to prevent the Globe controls from interference
+            ['click', 'mousedown', 'mouseup', 'touchstart', 'touchend', 'pointerdown', 'pointerup'].forEach(evt => {
+                el.addEventListener(evt, (e) => {
+                    e.stopPropagation();
+                    // For click and touchstart, we also trigger the action
+                    if (evt === 'click' || evt === 'touchstart') {
+                        handleClick(e);
+                    }
+                });
+            });
+
+            // Add hover effect via event listeners since CSS hover might be tricky with shadow DOM or inline styles
+            el.onmouseenter = () => {
+                const icon = el.querySelector('.iss-icon') as HTMLElement;
+                if (icon) icon.style.transform = 'scale(1.2)';
+
+                // LOCK CONTROLS to prevent "crazy cursor" / fighting
+                if (globeEl.current) {
+                    globeEl.current.controls().enabled = false;
+                    globeEl.current.controls().autoRotate = false;
+                }
+            };
+            el.onmouseleave = () => {
+                const icon = el.querySelector('.iss-icon') as HTMLElement;
+                if (icon) icon.style.transform = 'scale(1)';
+
+                // RESUME CONTROLS
+                if (globeEl.current) {
+                    globeEl.current.controls().enabled = true;
+                    globeEl.current.controls().autoRotate = !focusedLocation; // Resume rotation only if not focused
+                }
+            };
+
+            return el;
+        }
+
+        // News Markers
+        const el = document.createElement('div');
+        el.innerHTML = `
+            <div class="news-marker group cursor-pointer">
+                <div class="w-1 h-1 bg-white/60 rounded-full shadow-[0_0_5px_rgba(255,255,255,0.5)] animate-pulse"></div>
+                <div class="hidden group-hover:block absolute left-4 top-1/2 -translate-y-1/2 w-48 bg-black/90 border border-white/20 p-2 text-[10px] text-white backdrop-blur-md shadow-xl pointer-events-none z-50">
+                    <div class="font-bold text-primary mb-1 truncate">${d.properties?.domain?.toUpperCase() || 'NEWS'}</div>
+                    <div class="leading-tight line-clamp-3">${d.properties?.title || ''}</div>
+                </div>
+            </div>
+        `;
+        if (d.properties?.url) {
+            el.onclick = () => window.open(d.properties.url, '_blank');
+        }
+        return el;
     }, [focusedLocation]);
 
 
@@ -728,37 +972,59 @@ const GlobeView: React.FC = () => {
                 // HOLOGRAPHIC TRANSFORMATION
                 // CONFIGURATION
                 backgroundColor="rgba(0,0,0,0)"
-                // REALISTIC EARTH: Night texture for tactical feel
+                // REALISTIC EARTH: Fallback texture if shader fails or loads slowly
                 globeImageUrl="//unpkg.com/three-globe/example/img/earth-night.jpg"
                 bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
+                animateIn={false}
 
                 // ATMOSPHERE & LIGHTING (Cinematic Upgrade)
                 atmosphereColor="#4db2ff" // Pale Blue / Cyan (Rayleigh Scattering)
                 atmosphereAltitude={0.25} // 25% of radius extension
 
-                // OPTIMIZED POLYGONS (Event Heatmap Active)
+                // CLEAN POLYGONS (Only for focused country)
                 polygonsData={polygonsData}
                 polygonCapColor={(d: any) => {
                     const iso = d.properties.ISO_A3;
                     if (iso === focusedCountry) return 'rgba(0, 255, 255, 0.4)'; // Focused (Bright Cyan)
-
-                    const count = eventHeatmap[iso] || 0;
-                    if (count > 10) return `rgba(255, 0, 50, 0.4)`; // Critical Red
-                    if (count > 5) return `rgba(255, 100, 0, 0.3)`; // High Orange
-                    if (count > 2) return `rgba(255, 200, 0, 0.25)`; // Medium Yellow
-                    if (count > 0) return `rgba(0, 220, 255, 0.15)`; // Low Cyan
-
-                    return 'rgba(0,0,0,0)'; // Transparent
+                    return 'rgba(0,0,0,0)'; // Transparent - no heatmap coloring
                 }}
                 polygonSideColor={() => 'rgba(0,0,0,0)'}
-                polygonStrokeColor={() => 'rgba(0,0,0,0)'} // Removed neon borders
+                polygonStrokeColor={() => 'rgba(0,0,0,0)'}
                 polygonAltitude={(d: any) => {
                     const iso = d.properties.ISO_A3;
-                    if (iso === focusedCountry) return 0.03; // Raised focus
-                    const count = eventHeatmap[iso] || 0;
-                    return count > 0 ? 0.015 + (Math.min(count, 10) * 0.0015) : 0.005;
+                    return iso === focusedCountry ? 0.03 : 0.005;
                 }}
-                polygonsTransitionDuration={0} // Instant snap (no morphing)
+                polygonsTransitionDuration={0}
+
+                // SMOOTH EVENT HEATMAP (Hex Binning)
+                hexBinPointsData={globalEvents}
+                hexBinPointLat={(d: any) => d.coordinates[0]}
+                hexBinPointLng={(d: any) => d.coordinates[1]}
+                hexBinPointWeight={(d: any) => {
+                    // Weight by event type intensity
+                    if (d.type === 'CONFLICT') return 3;
+                    if (d.type === 'PROTEST') return 2;
+                    return 1; // DISASTER
+                }}
+                hexAltitude={(d: any) => {
+                    const weight = d.sumWeight / 10; // Normalize
+                    return Math.min(weight * 0.02, 0.05); // Max 5% altitude
+                }}
+                hexTopColor={(d: any) => {
+                    const intensity = Math.min(d.sumWeight / 15, 1);
+                    if (intensity > 0.7) return `rgba(255, 0, 60, ${0.6 * intensity})`; // Critical Red
+                    if (intensity > 0.4) return `rgba(255, 150, 0, ${0.5 * intensity})`; // Warning Orange  
+                    return `rgba(0, 220, 255, ${0.4 * intensity})`; // Info Cyan
+                }}
+                hexSideColor={(d: any) => {
+                    const intensity = Math.min(d.sumWeight / 15, 1);
+                    if (intensity > 0.7) return `rgba(255, 0, 60, ${0.3 * intensity})`;
+                    if (intensity > 0.4) return `rgba(255, 150, 0, ${0.25 * intensity})`;
+                    return `rgba(0, 220, 255, ${0.2 * intensity})`;
+                }}
+                hexBinResolution={4} // 4 = medium resolution for smooth gradients
+                hexMargin={0.1} // Small gap between hexagons
+                hexTransitionDuration={1000}
 
                 // EVENTS
                 ringsData={ringsData}
@@ -780,41 +1046,7 @@ const GlobeView: React.FC = () => {
                     if (d.type === 'ISS') return 0.4; // High orbit
                     return 0.05; // News
                 }}
-                htmlElement={(d: any) => {
-                    if (d.type === 'ISS') {
-                        const el = document.createElement('div');
-                        el.innerHTML = `
-                            <div style="transform: translate(-50%, -50%); text-align: center;">
-                                <div style="color: #00F0FF; font-size: 24px;">🛰️</div>
-                                <div style="
-                                    background: rgba(0,0,0,0.8); 
-                                    border: 1px solid #00F0FF; 
-                                    color: #00F0FF;
-                                    padding: 2px 6px; 
-                                    font-family: monospace; 
-                                    font-size: 10px;
-                                    margin-top: 4px;
-                                    box-shadow: 0 0 10px #00F0FF;
-                                ">ISS LIVE</div>
-                            </div>
-                        `;
-                        return el;
-                    }
-
-                    // News Markers
-                    const el = document.createElement('div');
-                    el.innerHTML = `
-                        <div class="news-marker group cursor-pointer">
-                            <div class="w-1 h-1 bg-white/60 rounded-full shadow-[0_0_5px_rgba(255,255,255,0.5)] animate-pulse"></div>
-                            <div class="hidden group-hover:block absolute left-4 top-1/2 -translate-y-1/2 w-48 bg-black/90 border border-white/20 p-2 text-[10px] text-white backdrop-blur-md shadow-xl pointer-events-none z-50">
-                                <div class="font-bold text-primary mb-1 truncate">${d.properties.domain.toUpperCase()}</div>
-                                <div class="leading-tight line-clamp-3">${d.properties.title}</div>
-                            </div>
-                        </div>
-                    `;
-                    el.onclick = () => window.open(d.properties.url, '_blank');
-                    return el;
-                }}
+                htmlElement={renderHtmlElement}
 
 
 
@@ -902,6 +1134,9 @@ const GlobeView: React.FC = () => {
             >
                 {focusedLocation && <TargetingMarker label={focusedLocation.label} />}
             </div>
+
+            {/* ISS SURVEILLANCE FEED */}
+            {isIssViewOpen && <ISSFeed onClose={() => setIsIssViewOpen(false)} />}
         </div>
     );
 };

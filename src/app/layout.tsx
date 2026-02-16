@@ -1,10 +1,27 @@
 import type { Metadata } from "next";
-import { JetBrains_Mono } from "next/font/google";
+import { Rajdhani, Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
+// Display font - Headers, titles, impact elements
+const rajdhani = Rajdhani({
+  subsets: ["latin"],
+  weight: ["600", "700"],
+  variable: "--font-display",
+  display: "swap",
+});
+
+// UI font - Labels, descriptions, readable text
+const inter = Inter({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-ui",
+  display: "swap",
+});
+
+// Data font - Numbers, timestamps, code, technical data
 const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
-  variable: "--font-mono",
+  variable: "--font-data",
   display: "swap",
 });
 
@@ -19,8 +36,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={jetbrainsMono.variable} suppressHydrationWarning>
-      <body className="font-mono antialiased">
+    <html
+      lang="en"
+      className={`${rajdhani.variable} ${inter.variable} ${jetbrainsMono.variable}`}
+      suppressHydrationWarning
+    >
+      <body className="font-ui antialiased">
         {children}
       </body>
     </html>

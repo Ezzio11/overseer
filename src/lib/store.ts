@@ -19,21 +19,25 @@ interface OverseerState {
     setMode: (mode: OverseerState['currentMode']) => void;
     setNews: (news: any[]) => void;
     setGlobalEvents: (events: GlobalEvent[]) => void;
+
+    // View Mode
+    viewMode: 'STANDARD' | 'REALISTIC';
+    setViewMode: (mode: 'STANDARD' | 'REALISTIC') => void;
 }
 
 export const useStore = create<OverseerState>((set) => ({
     focusedCountry: null,
     currentMode: 'DEFCON',
     news: [],
-
     globalEvents: [],
-
     comparisonCountryId: null,
     isComparisonMode: false,
+    viewMode: 'REALISTIC',
 
     setFocusedCountry: (countryId) => set({ focusedCountry: countryId }),
     setComparisonCountry: (countryId) => set({ comparisonCountryId: countryId }),
     setComparisonMode: (isActive) => set({ isComparisonMode: isActive }),
+    setViewMode: (mode) => set({ viewMode: mode }),
     setMode: (mode) => set({ currentMode: mode }),
     setNews: (news) => set({ news }),
     setGlobalEvents: (events) => set({ globalEvents: events }),

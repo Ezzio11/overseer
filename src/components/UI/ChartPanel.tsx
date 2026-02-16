@@ -11,19 +11,30 @@ export default function ChartPanel() {
 
     if (!country) return null;
 
-    // GDP history data
+    // --- DATA PREP ---
+
+    // 1. GDP Projection (Linear extrapolation based on growth rate)
     const baseGdp = country.economy.gdp;
     const growth = parseFloat(String(country.economy.gdpGrowth));
+    const isPositive = growth >= 0;
+    const chartColor = isPositive ? "#10b981" : "#ef4444"; // Emerald or Red
+
     const gdpHistory = Array.from({ length: 6 }, (_, i) => {
         const year = 2020 + i;
-        const factor = 1 + (growth / 100) * (i - 5);
-        return { year, gdp: Math.round(baseGdp * factor) };
+        // Simple compound growth formula
+        const factor = Math.pow(1 + (growth / 100), i);
+        return {
+            year,
+            gdp: Math.round(baseGdp * factor),
+            // Add a "forecast" flag for future years (visual distinction)
+            isForecast: year > new Date().getFullYear()
+        };
     });
 
-    // Radar data
+    // 2. Radar Comparison Data
     const allCountries = Object.values(COUNTRIES);
     const globalAvg = {
-        hdi: allCountries.reduce((sum, c) => sum + c.social.hdi, 0) / allCountries.length * 100,
+        hdi: allCountries.reduce((sum, c) => sum + c.social.hdi, 0) / allCountries.length,
         literacy: allCountries.reduce((sum, c) => sum + c.demographics.literacyRate, 0) / allCountries.length,
         urban: allCountries.reduce((sum, c) => sum + c.demographics.urbanizationRate, 0) / allCountries.length,
         internet: allCountries.reduce((sum, c) => sum + c.infrastructure.internetPenetration, 0) / allCountries.length,
@@ -31,32 +42,33 @@ export default function ChartPanel() {
     };
 
     const radarData = [
-        { subject: 'HDI', A: country.social.hdi * 100, B: Math.round(globalAvg.hdi), fullMark: 100 },
+        { subject: 'HDI', A: country.social.hdi * 100, B: Math.round(globalAvg.hdi * 100), fullMark: 100 },
         { subject: 'Literacy', A: country.demographics.literacyRate, B: Math.round(globalAvg.literacy), fullMark: 100 },
         { subject: 'Urban', A: country.demographics.urbanizationRate, B: Math.round(globalAvg.urban), fullMark: 100 },
         { subject: 'Internet', A: country.infrastructure.internetPenetration, B: Math.round(globalAvg.internet), fullMark: 100 },
         { subject: 'Freedom', A: country.social.pressFreedomIndex, B: Math.round(globalAvg.freedom), fullMark: 100 },
     ];
 
-    // Economic Indicators
+    // 3. Economic KPI Grid
     const economics = [
         {
             label: 'GDP / CAPITA',
             value: `$${country.economy.gdpPerCapita.toLocaleString()}`,
             sub: 'USD',
-            color: 'text-white/90'
+            color: 'text-white'
         },
         {
             label: 'UNEMPLOYMENT',
             value: `${country.economy.unemployment}%`,
-            sub: '',
-            color: country.economy.unemployment > 10 ? 'text-red-500' : 'text-emerald-400'
+            sub: null,
+            // Dynamic coloring based on thresholds
+            color: country.economy.unemployment > 10 ? 'text-red-500' : (country.economy.unemployment > 5 ? 'text-amber-400' : 'text-emerald-400')
         },
         {
             label: 'INFLATION',
             value: `${country.economy.inflation}%`,
-            sub: '',
-            color: country.economy.inflation > 10 ? 'text-red-500' : 'text-amber-400'
+            sub: null,
+            color: country.economy.inflation > 8 ? 'text-red-500' : (country.economy.inflation > 3 ? 'text-amber-400' : 'text-emerald-400')
         },
         {
             label: 'TRADE BAL.',
@@ -68,111 +80,145 @@ export default function ChartPanel() {
 
     return (
         <div className="w-full h-full flex flex-col pointer-events-none">
-            <TacticalFrame title="ECONOMIC INTELLIGENCE" className="h-full pointer-events-auto">
-                <div className="flex flex-col gap-6 h-full overflow-y-auto custom-scrollbar pr-2 p-1">
+            <TacticalFrame title="ECONOMIC INTELLIGENCE" className="h-full pointer-events-auto bg-black/80 backdrop-blur-md">
+                <div className="flex flex-col gap-6 h-full overflow-y-auto custom-scrollbar p-1 pr-2">
 
-                    {/* SECTOR SCANNER — GDP TREND */}
-                    <div className="relative">
-                        <div className="flex justify-between items-center mb-2">
-                            <span className="text-[10px] font-mono text-zinc-500 tracking-widest">GDP FORECAST (5YR)</span>
+                    {/* --- MODULE 1: GDP TREND (AREA CHART) --- */}
+                    <div className="relative group">
+                        {/* Header Row */}
+                        <div className="flex justify-between items-end mb-2 border-b border-white/5 pb-1">
+                            <span className="font-mono text-[10px] text-zinc-500 uppercase tracking-widest">GDP Forecast (5yr)</span>
                             <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-mono text-zinc-600">GROWTH</span>
-                                <span className={`text-xs font-mono font-bold ${growth >= 0 ? 'text-emerald-400' : 'text-red-500'}`}>
-                                    {growth > 0 ? '+' : ''}{growth}%
-                                </span>
+                                <span className="font-mono text-[9px] text-zinc-600 uppercase">Growth</span>
+                                <div className={`flex items-center gap-1 px-1.5 py-0.5 border ${isPositive ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-red-500/30 bg-red-500/10'}`}>
+                                    <span className={`font-mono text-xs font-bold ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
+                                        {isPositive ? '+' : ''}{growth}%
+                                    </span>
+                                </div>
                             </div>
                         </div>
-                        <div className="h-[180px] w-full bg-black/40 border border-white/[0.08] p-2 relative">
-                            {/* Grid Lines Overlay */}
-                            <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:20px_20px] pointer-events-none" />
+
+                        {/* Chart Container */}
+                        <div className="h-[160px] w-full bg-black/20 border-l border-b border-white/10 relative">
+                            {/* Background Grid Pattern */}
+                            <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:20px_20px] pointer-events-none" />
+
+                            {/* Scanline Overlay */}
+                            <div className="absolute inset-0 bg-[linear-gradient(to_bottom,transparent,rgba(0,0,0,0.8))] pointer-events-none z-10" />
 
                             <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={gdpHistory}>
+                                <AreaChart data={gdpHistory} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
                                     <defs>
                                         <linearGradient id="colorGdp" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor={growth >= 0 ? "#10b981" : "#ef4444"} stopOpacity={0.3} />
-                                            <stop offset="95%" stopColor={growth >= 0 ? "#10b981" : "#ef4444"} stopOpacity={0} />
+                                            <stop offset="5%" stopColor={chartColor} stopOpacity={0.4} />
+                                            <stop offset="95%" stopColor={chartColor} stopOpacity={0} />
                                         </linearGradient>
                                     </defs>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                                    <CartesianGrid strokeDasharray="2 4" stroke="rgba(255,255,255,0.05)" vertical={false} />
                                     <XAxis
                                         dataKey="year"
-                                        tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 9, fontFamily: 'monospace' }}
+                                        tick={{ fill: 'rgba(113, 113, 122, 1)', fontSize: 9, fontFamily: 'monospace' }}
                                         axisLine={false}
                                         tickLine={false}
-                                        dy={10}
+                                        dy={5}
                                     />
                                     <YAxis hide />
                                     <Tooltip
-                                        contentStyle={{ backgroundColor: '#09090b', border: '1px solid #27272a', borderRadius: '0px' }}
-                                        itemStyle={{ color: '#fff', fontFamily: 'monospace', fontSize: '11px' }}
-                                        labelStyle={{ color: '#71717a', fontFamily: 'monospace', fontSize: '10px' }}
+                                        contentStyle={{ backgroundColor: '#000', border: '1px solid #333', borderRadius: 0 }}
+                                        itemStyle={{ color: '#fff', fontFamily: 'monospace', fontSize: '10px' }}
+                                        labelStyle={{ color: '#666', fontFamily: 'monospace', fontSize: '9px', marginBottom: '2px' }}
                                         formatter={(value: any) => [`$${(value / 1).toLocaleString()}B`, 'GDP']}
                                     />
                                     <Area
                                         type="monotone"
                                         dataKey="gdp"
-                                        stroke={growth >= 0 ? "#10b981" : "#ef4444"}
+                                        stroke={chartColor}
                                         strokeWidth={2}
                                         fillOpacity={1}
                                         fill="url(#colorGdp)"
                                         isAnimationActive={true}
+                                        animationDuration={1500}
                                     />
                                 </AreaChart>
                             </ResponsiveContainer>
                         </div>
                     </div>
 
-                    {/* ECONOMIC SNAPSHOT GRID */}
+                    {/* --- MODULE 2: KPI GRID --- */}
                     <div>
-                        <span className="text-[10px] font-mono text-zinc-500 tracking-widest block mb-2">ECONOMIC SNAPSHOT</span>
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="flex items-center gap-2 mb-2">
+                            <div className="w-1 h-1 bg-zinc-500 rounded-full" />
+                            <span className="font-mono text-[10px] text-zinc-500 uppercase tracking-widest">Economic Snapshot</span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-1 bg-white/5 p-1 border border-white/5">
                             {economics.map((stat, i) => (
-                                <div key={i} className="bg-white/[0.03] border border-white/[0.05] p-3 flex flex-col justify-between hover:bg-white/[0.05] transition-colors group">
-                                    <span className="text-[10px] font-mono text-zinc-500 group-hover:text-zinc-400 transition-colors">{stat.label}</span>
-                                    <div className="flex items-baseline gap-1 mt-1">
-                                        <span className={`text-lg font-mono font-bold ${stat.color} tracking-tight`}>{stat.value}</span>
-                                        {stat.sub && <span className="text-[10px] text-zinc-600 font-mono">{stat.sub}</span>}
+                                <div key={i} className="bg-black/40 p-3 hover:bg-white/[0.02] transition-colors border border-transparent hover:border-white/10 group">
+                                    <span className="block font-mono text-[9px] text-zinc-500 group-hover:text-cyan-500 transition-colors uppercase mb-1">
+                                        {stat.label}
+                                    </span>
+                                    <div className="flex items-baseline gap-1.5">
+                                        <span className={`font-display text-xl font-bold tracking-tight ${stat.color}`}>
+                                            {stat.value}
+                                        </span>
+                                        {stat.sub && (
+                                            <span className="font-mono text-[9px] text-zinc-600">{stat.sub}</span>
+                                        )}
                                     </div>
                                 </div>
                             ))}
                         </div>
                     </div>
 
-                    {/* RADAR — DEVELOPMENT METRICS */}
-                    <div className="flex-grow flex flex-col min-h-[220px]">
-                        <div className="flex justify-between items-center mb-2">
-                            <span className="text-[10px] font-mono text-zinc-500 tracking-widest">DEVELOPMENT MATRIX</span>
+                    {/* --- MODULE 3: DEVELOPMENT MATRIX (RADAR) --- */}
+                    <div className="flex-grow flex flex-col min-h-[240px]">
+                        <div className="flex justify-between items-center mb-2 border-b border-white/5 pb-1">
+                            <span className="font-mono text-[10px] text-zinc-500 uppercase tracking-widest">Development Matrix</span>
+                            <span className="font-mono text-[9px] text-zinc-700">HDT</span>
                         </div>
-                        <div className="flex-grow w-full bg-black/40 border border-white/[0.08] relative min-h-[240px]">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <RadarChart cx="50%" cy="50%" outerRadius="65%" data={radarData}>
-                                    <PolarGrid stroke="rgba(255,255,255,0.08)" />
-                                    <PolarAngleAxis dataKey="subject" tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 10, fontFamily: 'monospace' }} />
 
+                        <div className="flex-grow w-full bg-black/20 border border-white/5 relative p-2">
+                            {/* Corner Accents */}
+                            <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-white/20" />
+                            <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-white/20" />
+                            <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-white/20" />
+                            <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-white/20" />
+
+                            <ResponsiveContainer width="100%" height="100%">
+                                <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarData}>
+                                    <PolarGrid stroke="rgba(255,255,255,0.05)" gridType="polygon" />
+                                    <PolarAngleAxis
+                                        dataKey="subject"
+                                        tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 9, fontFamily: 'monospace' }}
+                                    />
+
+                                    {/* Country Data (The "Glow") */}
                                     <Radar
                                         name={country.name}
                                         dataKey="A"
-                                        stroke="#06b6d4"
+                                        stroke="#06b6d4" // Cyan-500
                                         strokeWidth={2}
                                         fill="#06b6d4"
-                                        fillOpacity={0.15}
+                                        fillOpacity={0.2}
                                     />
+
+                                    {/* Global Average (The "Benchmark") */}
                                     <Radar
                                         name="Global Avg"
                                         dataKey="B"
-                                        stroke="#71717a"
+                                        stroke="#52525b" // Zinc-600
                                         strokeWidth={1}
-                                        strokeDasharray="4 4"
+                                        strokeDasharray="3 3"
                                         fill="transparent"
                                     />
+
                                     <Legend
-                                        wrapperStyle={{ fontSize: '10px', fontFamily: 'monospace', paddingTop: '10px' }}
-                                        iconSize={8}
-                                        formatter={(value) => <span className="text-zinc-400">{value}</span>}
+                                        wrapperStyle={{ fontSize: '9px', fontFamily: 'monospace', paddingTop: '10px' }}
+                                        iconSize={6}
+                                        formatter={(val) => <span className="text-zinc-400 uppercase">{val}</span>}
                                     />
                                     <Tooltip
-                                        contentStyle={{ backgroundColor: '#09090b', border: '1px solid #27272a', fontSize: '11px', fontFamily: 'monospace' }}
+                                        contentStyle={{ backgroundColor: '#000', border: '1px solid #333', fontSize: '10px', fontFamily: 'monospace' }}
                                         itemStyle={{ color: '#fff' }}
                                     />
                                 </RadarChart>

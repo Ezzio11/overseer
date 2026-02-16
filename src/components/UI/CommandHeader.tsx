@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import NewsTicker from './NewsTicker';
-import { Wifi, Radio, Battery, Activity } from 'lucide-react';
+import { Wifi, Radio, Battery, Activity, Clock, Globe } from 'lucide-react';
+import { useStore } from '@/lib/store';
 
 export const CommandHeader: React.FC = () => {
     const [localTime, setLocalTime] = useState('');
@@ -20,9 +21,10 @@ export const CommandHeader: React.FC = () => {
     }, []);
 
     return (
-        <header className="fixed top-0 left-0 w-full z-50 pointer-events-none flex justify-center">
-            {/* SVG BACKGROUND FRAME */}
-            <div className="absolute top-0 w-full h-20 overflow-visible pointer-events-none hidden md:block">
+        <header className="relative w-full h-32 z-50 pointer-events-none flex justify-center font-sans">
+
+            {/* SVG BACKGROUND - UNCHANGED */}
+            <div className="absolute top-0 w-full h-32 overflow-visible pointer-events-none hidden md:block">
                 <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" className="drop-shadow-[0_10px_20px_rgba(0,0,0,0.8)]">
                     <defs>
                         <linearGradient id="header-grad" x1="0" y1="0" x2="0" y2="1">
@@ -31,14 +33,12 @@ export const CommandHeader: React.FC = () => {
                             <stop offset="100%" stopColor="#00d9ff" stopOpacity="0.1" />
                         </linearGradient>
                     </defs>
-                    {/* Main Curved Bar: Wide center, tapering sides */}
                     <path
                         d="M0,0 L100,0 L100,60 C80,60 75,80 50,80 C25,80 20,60 0,60 Z"
                         fill="url(#header-grad)"
                         stroke="rgba(0, 217, 255, 0.2)"
                         strokeWidth="0.5"
                     />
-                    {/* Accent Line */}
                     <path
                         d="M20,65 L80,65"
                         stroke="rgba(0, 217, 255, 0.1)"
@@ -49,72 +49,72 @@ export const CommandHeader: React.FC = () => {
                 </svg>
             </div>
 
-            {/* CONTENT CONTAINER - Centered within the curve */}
-            <div className="relative z-10 w-full max-w-[95%] h-16 flex items-start justify-between px-8 pt-2 pointer-events-auto">
+            {/* CONTENT CONTAINER - THE FIX */}
+            {/* 1. h-20 (80px): Matches the height of the solid black bar part of the SVG. */}
+            {/* 2. items-center: Vertically centers content exactly in that 80px space. */}
+            {/* 3. Removed all 'pt' padding. We let Flexbox do the centering. */}
+            <div className="relative z-10 w-full max-w-[95%] h-20 flex items-center justify-between px-8 pointer-events-auto">
 
                 {/* LEFT: BRANDING */}
-                <div className="flex flex-col pt-1">
-                    <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-sm bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center">
-                            <div className="w-4 h-4 bg-cyan-500 clip-polygon-hex animate-pulse" style={{ clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)' }} />
-                        </div>
+                <div className="flex flex-col">
+                    <div className="flex items-center gap-4">
                         <div>
-                            <h1 className="text-xl font-black tracking-tighter text-white font-heading italic leading-none">THE OVERSEER</h1>
-                            <div className="flex items-center gap-2 mt-0.5">
-                                <span className="text-[9px] font-mono text-cyan-500/60 tracking-[0.3em]">GLOBAL INTELLIGENCE</span>
-                                <div className="h-[1px] w-12 bg-cyan-500/20" />
+                            <h1 className="text-2xl font-bold tracking-tight text-white leading-none drop-shadow-md">THE OVERSEER</h1>
+                            <div className="flex items-center gap-2 mt-1">
+                                <span className="font-mono text-[9px] text-cyan-500/80 tracking-[0.2em] uppercase">Global Intelligence Network</span>
+                                <div className="h-[1px] w-8 bg-cyan-500/30" />
                             </div>
                         </div>
                     </div>
                 </div>
 
-                {/* CENTER: TICKER (Push down slightly to fit curve) */}
-                <div className="flex-1 max-w-4xl mt-4 mx-4">
-                    <div className="relative h-8 bg-black/40 border border-white/5 rounded-sm overflow-hidden flex items-center px-4 backdrop-blur-sm">
-                        <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent_0%,rgba(0,217,255,0.02)_50%,transparent_100%)] animate-[scan_3s_linear_infinite]" />
+                {/* CENTER: TICKER */}
+                {/* Removed 'mt-1', flex-center handles it */}
+                <div className="flex-1 max-w-3xl mx-8 hidden md:block">
+                    <div className="relative h-9 bg-black/40 border border-white/10 rounded-full overflow-hidden flex items-center px-4 backdrop-blur-md shadow-lg group">
+                        <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent_0%,rgba(0,217,255,0.03)_50%,transparent_100%)] animate-[scan_4s_linear_infinite]" />
                         <NewsTicker />
                     </div>
                 </div>
 
-                {/* RIGHT: STATS & TIME */}
-                <div className="flex items-center gap-8 pt-1">
+                {/* VIEW MODE TOGGLE */}
+                <div className="hidden lg:flex items-center gap-2 mr-8">
+                    <div className="flex bg-black/40 border border-white/10 rounded-lg p-1 backdrop-blur-md">
+                        <button
+                            onClick={() => useStore.getState().setViewMode('STANDARD')}
+                            className={`px-3 py-1 text-[10px] font-mono uppercase tracking-wider transition-all rounded ${useStore(s => s.viewMode) === 'STANDARD' ? 'bg-cyan-500/20 text-cyan-400 shadow-[0_0_10px_rgba(0,217,255,0.2)]' : 'text-zinc-500 hover:text-zinc-300'}`}
+                        >
+                            STD
+                        </button>
+                        <button
+                            onClick={() => useStore.getState().setViewMode('REALISTIC')}
+                            className={`px-3 py-1 text-[10px] font-mono uppercase tracking-wider transition-all rounded ${useStore(s => s.viewMode) === 'REALISTIC' ? 'bg-cyan-500/20 text-cyan-400 shadow-[0_0_10px_rgba(0,217,255,0.2)]' : 'text-zinc-500 hover:text-zinc-300'}`}
+                        >
+                            REAL
+                        </button>
+                    </div>
+                </div>
 
-                    {/* SYSTEM STATUS */}
-                    <div className="hidden lg:flex flex-col items-end gap-1">
-                        <div className="flex items-center gap-2 text-cyan-400/80">
-                            <span className="text-[9px] font-mono tracking-wider opacity-70">UPLINK</span>
-                            <div className="flex gap-[2px]">
-                                {[1, 2, 3, 4, 5].map(i => (
-                                    <div key={i} className={`w-0.5 h-2 ${i <= 3 ? 'bg-cyan-400' : 'bg-cyan-900'} transform -skew-x-12`} />
-                                ))}
-                            </div>
+                {/* RIGHT: TIME MODULES */}
+                <div className="flex items-center gap-8">
+                    {/* LOCAL TIME */}
+                    <div className="flex items-center gap-3 group">
+                        <div className="flex flex-col items-end leading-none">
+                            <span className="font-mono text-[9px] text-zinc-500 uppercase tracking-wider group-hover:text-zinc-400 transition-colors">LOCAL SYSTEM</span>
+                            <span className="font-mono text-xl font-bold text-white tracking-tight">{localTime}</span>
                         </div>
-                        <div className="flex items-center gap-2 text-emerald-400/80">
-                            <span className="text-[9px] font-mono tracking-wider opacity-70">SECURE</span>
-                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_5px_rgba(16,185,129,0.5)]" />
-                        </div>
+                        <Clock className="w-4 h-4 text-zinc-600 group-hover:text-white transition-colors" />
                     </div>
 
-                    {/* DUAL CLOCK */}
-                    <div className="flex items-center gap-4 bg-black/20 px-4 py-1 rounded border border-white/5 backdrop-blur-md">
-                        {/* LOCAL TIME */}
-                        <div className="text-right">
-                            <div className="text-xl font-mono font-bold text-white leading-none tracking-tight">
-                                {localTime}
-                            </div>
-                            <span className="text-[9px] font-mono text-zinc-500 tracking-[0.1em] uppercase">LOCAL</span>
-                        </div>
+                    <div className="h-8 w-[1px] bg-white/10" />
 
-                        {/* DIVIDER */}
-                        <div className="h-6 w-[1px] bg-white/10" />
-
-                        {/* UTC TIME */}
-                        <div className="text-right">
-                            <div className="text-xl font-mono font-bold text-cyan-400 leading-none tracking-tight text-shadow-cyan">
-                                {utcTime}
-                            </div>
-                            <span className="text-[9px] font-mono text-cyan-600 tracking-[0.1em]">ZULU</span>
+                    {/* UTC TIME */}
+                    <div className="flex items-center gap-3 group">
+                        <div className="flex flex-col items-end leading-none">
+                            <span className="font-mono text-[9px] text-cyan-600 uppercase tracking-wider group-hover:text-cyan-400 transition-colors">ZULU (UTC)</span>
+                            <span className="font-mono text-xl font-bold text-cyan-400 tracking-tight text-shadow-cyan">{utcTime}</span>
                         </div>
+                        <Globe className="w-4 h-4 text-cyan-600 group-hover:text-cyan-400 transition-colors" />
                     </div>
                 </div>
 

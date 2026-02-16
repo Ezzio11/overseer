@@ -26,14 +26,14 @@ export const Panel: React.FC<PanelProps> = ({
 
             {title && (
                 <div className="mb-4 border-b border-white/10 pb-2 flex items-center justify-between">
-                    <h2 className="text-xs font-bold tracking-[0.2em] text-[var(--color-primary)] uppercase drop-shadow-[0_0_5px_rgba(0,255,148,0.5)]">
+                    <h2 className="font-display text-display-sm font-bold tracking-tactical-wide text-[var(--color-primary)] uppercase drop-shadow-[0_0_5px_rgba(0,255,148,0.5)]">
                         [{title}]
                     </h2>
                     <div className="h-1 w-1 bg-[var(--color-primary)] rounded-full animate-pulse" />
                 </div>
             )}
 
-            <div className="text-sm text-gray-300 font-mono">
+            <div className="font-ui text-ui-lg text-gray-300">
                 {children}
             </div>
         </div>

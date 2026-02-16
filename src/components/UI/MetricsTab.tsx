@@ -1,4 +1,5 @@
 import React from 'react';
+import { AnimatedNumber } from "./AnimatedNumber";
 
 // Formatter Helpers
 const formatCurrency = (val: number) => {
@@ -20,6 +21,8 @@ const formatRank = (val: number) => {
     return `#${val}`;
 };
 
+
+
 export interface MetricsTabProps {
     data: Record<string, any>;
     category: string;
@@ -29,29 +32,29 @@ export const MetricsTab: React.FC<MetricsTabProps> = ({ data, category }) => {
     const formatValue = (key: string, value: any) => {
         const k = key.toLowerCase();
 
-        if (typeof value === 'string') return value;
+        if (typeof value !== 'number') return value;
 
         // Currency (GDP, Trade)
         if ((k.includes('gdp') && !k.includes('growth') && !k.includes('debt')) || k.includes('trade')) {
-            return formatCurrency(value);
+            return <AnimatedNumber value={value} format={formatCurrency} />;
         }
 
         // Percentages
         if (k.includes('growth') || k.includes('rate') || k.includes('inflation') || k.includes('unemployment') || k.includes('penetration') || k.includes('access') || k.includes('renewable') || k.includes('expenditure') || k.includes('debt')) {
-            return formatPercent(value);
+            return <AnimatedNumber value={value} format={formatPercent} />;
         }
 
         // Large Counts
         if (key === 'population' || key === 'activePersonnel') {
-            return formatLargeNumber(value);
+            return <AnimatedNumber value={value} format={formatLargeNumber} />;
         }
 
         // Ranks
         if (k.includes('rank')) {
-            return formatRank(value);
+            return <AnimatedNumber value={value} format={formatRank} />;
         }
 
-        return value.toLocaleString();
+        return <AnimatedNumber value={value} format={(v) => v.toLocaleString()} />;
     };
 
     const formatKeyLabel = (key: string) => {
@@ -123,16 +126,15 @@ export const MetricsTab: React.FC<MetricsTabProps> = ({ data, category }) => {
                     return (
                         <div
                             key={key}
-                            className="flex items-baseline justify-between group py-4 px-2 hover:bg-white/[0.02] transition-colors rounded mb-1"
+                            className="grid grid-cols-[1fr_auto] gap-3 items-baseline group py-3 px-3 hover:bg-white/[0.02] transition-colors rounded mb-1 border-b border-white/5 last:border-0"
                         >
-                            <span className="text-sm font-mono text-cyan-500/70 tracking-widest uppercase shrink-0">
+                            <span className="text-sm font-mono text-cyan-500/70 tracking-widest uppercase truncate pr-4">
                                 {formatKeyLabel(key)}
                             </span>
 
-                            {/* Dotted Leader */}
-                            <div className="flex-1 mx-6 border-b-2 border-dotted border-cyan-900/30 relative -top-1 group-hover:border-cyan-500/30 transition-colors" />
+                            {/* Dotted Leader - Removed for cleaner grid look, using border-b on row instead */}
 
-                            <span className={`text-base font-mono font-bold tabular-nums whitespace-nowrap ${semanticColor} ${semanticColor !== 'text-white' ? 'drop-shadow-[0_0_8px_rgba(0,0,0,0.5)]' : ''}`}>
+                            <span className={`text-base font-mono font-bold tabular-nums whitespace-nowrap text-right ${semanticColor} ${semanticColor !== 'text-white' ? 'drop-shadow-[0_0_8px_rgba(0,0,0,0.5)]' : ''}`}>
                                 {formatValue(key, value)}
                             </span>
                         </div>

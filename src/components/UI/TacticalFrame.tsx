@@ -5,6 +5,7 @@ interface TacticalFrameProps {
     className?: string;
     contentClassName?: string;
     title?: string;
+    actions?: React.ReactNode;
     variant?: 'default' | 'alert' | 'warning' | 'hex';
 }
 
@@ -13,6 +14,7 @@ export const TacticalFrame: React.FC<TacticalFrameProps> = ({
     className = '',
     contentClassName = 'p-4',
     title,
+    actions,
     variant = 'default'
 }) => {
     // FUI Palette

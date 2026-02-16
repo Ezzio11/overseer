@@ -1,21 +1,6 @@
 import React, { useEffect, useState } from 'react';
 
 export const HUDOverlay = () => {
-    const [leftData, setLeftData] = useState<Array<{ hex: string, val: number }>>([]);
-    const [rightData, setRightData] = useState<Array<{ val: number, ver: number }>>([]);
-
-    useEffect(() => {
-        setLeftData(Array.from({ length: 10 }).map(() => ({
-            hex: Math.random().toString(16).substr(2, 4).toUpperCase(),
-            val: Math.floor(Math.random() * 99)
-        })));
-
-        setRightData(Array.from({ length: 10 }).map(() => ({
-            val: Math.floor(Math.random() * 999),
-            ver: Math.floor(Math.random() * 9)
-        })));
-    }, []);
-
     return (
         <div className="absolute inset-0 pointer-events-none overflow-hidden z-0 select-none">
             {/* SVG Layer for crisp lines */}
@@ -38,11 +23,7 @@ export const HUDOverlay = () => {
                     ))}
                 </g>
 
-                {/* Right Panel Backing Decoration - Hugs Right Edge */}
-                <g transform="translate(calc(100% - 350), 120)">
-                    <path d="M280 0 L 300 0 L 300 600 L 280 600" fill="none" stroke="rgba(0, 217, 255, 0.5)" strokeWidth="1" />
-                    <path d="M0 600 L 100 650 L 300 650" fill="none" stroke="rgba(0, 217, 255, 0.3)" strokeWidth="1" strokeDasharray="5,5" />
-                </g>
+                {/* Right Panel Backing Decoration - REMOVED (Moved to Div below) */}
 
                 {/* Center Target Bracket - Left (Widened) */}
                 <path d="M calc(50% - 400px) calc(50% - 250px) L calc(50% - 430px) calc(50% - 250px) L calc(50% - 430px) calc(50% + 250px) L calc(50% - 400px) calc(50% + 250px)"
@@ -57,27 +38,57 @@ export const HUDOverlay = () => {
                 <line x1="65%" y1="50%" x2="95%" y2="50%" stroke="rgba(0, 217, 255, 0.3)" strokeDasharray="1000" strokeDashoffset="1000" className="animate-[dash_10s_linear_infinite_reverse]" />
             </svg>
 
+            {/* Right Panel Backing Decoration - Moved here to use CSS positioning instead of invalid SVG calc() */}
+            <div className="absolute top-[120px] right-0 w-[350px] h-[650px] pointer-events-none opacity-40 z-0">
+                <svg width="100%" height="100%" viewBox="0 0 350 650" fill="none">
+                    <path d="M280 0 L 300 0 L 300 600 L 280 600" fill="none" stroke="rgba(0, 217, 255, 0.5)" strokeWidth="1" />
+                    <path d="M0 600 L 100 650 L 300 650" fill="none" stroke="rgba(0, 217, 255, 0.3)" strokeWidth="1" strokeDasharray="5,5" />
+                </svg>
+            </div>
+
             {/* CSS-based decorative elements */}
             <div className="absolute top-[15%] left-12 w-[150px] h-[2px] bg-gradient-to-r from-cyan-500/0 via-cyan-500/50 to-cyan-500/0 shadow-[0_0_10px_cyan]" />
             <div className="absolute top-[15%] right-12 w-[150px] h-[2px] bg-gradient-to-r from-cyan-500/0 via-cyan-500/50 to-cyan-500/0 shadow-[0_0_10px_cyan]" />
 
-            {/* Floating Data Streams */}
-            <div className="absolute top-[25%] left-12 font-mono text-[11px] text-cyan-400/70 font-bold flex flex-col gap-1 drop-shadow-[0_0_5px_rgba(0,255,255,0.5)]">
-                {leftData.map((item, i) => (
-                    <div key={i} className="flex gap-4">
-                        <span>0x{item.hex}</span>
-                        <span>{item.val}</span>
+            {/* TACTICAL HUD SHAPES (Replacing Data Streams) */}
+            {/* Left Edge Scale */}
+            <div className="absolute top-[20%] left-4 h-[50%] flex flex-col justify-between pointer-events-none">
+                {[0, -2, -4, -6].map((num) => (
+                    <div key={num} className="flex items-center gap-2">
+                        <div className="w-2 h-[1px] bg-cyan-500" />
+                        <span className="font-mono text-[10px] text-cyan-500/80">{num}</span>
                     </div>
                 ))}
             </div>
 
-            <div className="absolute top-[25%] right-12 font-mono text-[11px] text-cyan-400/70 font-bold flex flex-col gap-1 text-right drop-shadow-[0_0_5px_rgba(0,255,255,0.5)]">
-                {rightData.map((item, i) => (
-                    <div key={i} className="flex gap-4 justify-end">
-                        <span>{item.val}</span>
-                        <span>:: V{item.ver}.0</span>
+            {/* Left Far Edge Segments (Meter Style) */}
+            <div className="absolute top-[25%] left-1 w-2 h-[40%] flex flex-col gap-1 pointer-events-none opacity-40">
+                {Array.from({ length: 40 }).map((_, i) => (
+                    <div key={i} className={`w-full h-[2px] ${i % 5 === 0 ? 'bg-cyan-400' : 'bg-cyan-900/40'}`} />
+                ))}
+            </div>
+
+            {/* Right Edge Scale */}
+            <div className="absolute top-[20%] right-4 h-[50%] flex flex-col justify-between items-end pointer-events-none">
+                {[0, -2, -4, -6].map((num) => (
+                    <div key={num} className="flex items-center gap-2">
+                        <span className="font-mono text-[10px] text-cyan-500/80">{num}</span>
+                        <div className="w-2 h-[1px] bg-cyan-500" />
                     </div>
                 ))}
+            </div>
+
+            {/* Right Far Edge Segments (Meter Style) */}
+            <div className="absolute top-[25%] right-1 w-2 h-[40%] flex flex-col gap-1 pointer-events-none opacity-40">
+                {Array.from({ length: 40 }).map((_, i) => (
+                    <div key={i} className={`w-full h-[2px] ${i % 5 === 0 ? 'bg-cyan-400' : 'bg-cyan-900/40'}`} />
+                ))}
+            </div>
+
+            {/* Small Bottom Corners (Subtle Data) */}
+            <div className="absolute bottom-[10%] left-12 flex items-center gap-3 opacity-60">
+                <div className="w-12 h-2 bg-red-900/40 border-l border-red-500" />
+                <span className="font-mono text-[8px] text-zinc-500 uppercase">Electricity [72%]</span>
             </div>
         </div>
     );
